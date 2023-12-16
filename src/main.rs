@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     env,
     fs::File,
-    io::{self, Write},
+    io::{self, Write}, time::Instant,
 };
 
 // #[allow(unused)]
@@ -46,9 +46,12 @@ impl PackageJson {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    let green_code = "\x1b[32m";
+    let reset_code = "\x1b[0m";
 
     match args[1].as_str() {
         "init" => {
+            let start_time = Instant::now();
             let current_dir = env::current_dir().unwrap();
             let cwd_name: std::borrow::Cow<'_, str> = current_dir
                 .file_name()
@@ -56,38 +59,71 @@ fn main() {
                 .to_string_lossy();
 
             let mut package_json = PackageJson::new(&cwd_name);
-
-            println!("This will walk you through creating a package.json file.");
-            println!("It only covers the most common items, and tries to guess sensible defaults.");
-
             package_json.scripts.insert(
                 "test".to_string(),
                 "echo \"Error: no test specified\" && exit 1".to_string(),
             );
-            package_json.name =
-                read_input(&format!("package name: ({}) ", package_json.name)).unwrap();
-            package_json.version =
-                read_input(&format!("version: ({}) ", package_json.version)).unwrap();
-            package_json.description = read_input("description: ").unwrap();
-            package_json.author = read_input("author: ").unwrap();
-            package_json.license =
-                read_input(&format!("license: ({}) ", package_json.license)).unwrap();
+
+            if args.len() > 2 && args[2] == "-y" {
+                package_json.write_to_file();
+            } else {
+                println!("This will walk you through creating a package.json file.");
+                println!(
+                    "It only covers the most common items, and tries to guess sensible defaults."
+                );
+                println!("");
+
+                package_json.name = read_input_default("package name", &package_json.name).unwrap();
+                package_json.version =
+                    read_input_default("version", &package_json.version).unwrap();
+                package_json.description = read_input("description: ").unwrap();
+                package_json.author = read_input("author: ").unwrap();
+                package_json.license =
+                    read_input_default("license", &package_json.license).unwrap();
+            }
 
             package_json.write_to_file();
 
-            dbg!(package_json);
+            let end_time = Instant::now();
+
+            println!("");
+            println!(
+                "{}success{} saved package.json file",
+                green_code, reset_code
+            );
+            println!("Done in {:.2}s", end_time.duration_since(start_time).as_secs_f64());
         }
-        _ => {}
+        _ => {
+            println!("Unknown command: {}", args[1]);
+            println!("");
+            println!("To see a list of supported commands, run:");
+            println!("nnpm help");
+        }
     }
-    println!("Hello, world!{:?}", args);
 }
 
-fn read_input_default(prompt: &str, default: &str) -> String {
+fn read_input(prompt: &str) -> io::Result<String> {
     print!("{}", prompt);
-    io::stdout().flush().unwrap();
+    io::stdout().flush()?;
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
+    let mut input: String = String::new();
+    io::stdin().read_line(&mut input)?;
 
-    input.trim().to_string()
+    Ok(input.trim().to_string())
+}
+
+fn read_input_default(prompt: &str, default: &str) -> io::Result<String> {
+    print!("{}: ({}) ", prompt, default);
+    io::stdout().flush()?;
+
+    let mut input: String = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    if input.trim().is_empty() {
+        input = default.to_string();
+
+        return Ok(input);
+    }
+
+    Ok(input.trim().to_string())
 }
