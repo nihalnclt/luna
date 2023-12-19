@@ -1,8 +1,9 @@
 use flate2::read::GzDecoder;
+use node_semver::{Range, Version};
 use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env,
     fs::{self, File},
     io::{self, Write},
@@ -105,7 +106,7 @@ struct PackageVersion {
     name: String,
     version: String,
     dist: PackageDist,
-    // dependencies: {},
+    dependencies: Option<HashMap<String, String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -124,6 +125,39 @@ fn fetch_package_info() -> PackageInfo {
     let package_info: PackageInfo = serde_json::from_str(&json_string).unwrap();
     package_info
 }
+
+#[derive(Debug, Eq, Hash, PartialEq)]
+struct DepReq {
+    name: String,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct DependencyGraph {
+    pub relations: HashMap<DepReq, String>,
+}
+
+impl DependencyGraph {
+    fn new() -> Self {
+        DependencyGraph {
+            relations: HashMap::new(),
+        }
+    }
+
+    fn add_node(&mut self, dep: DepReq) {
+        self.relations.insert(dep, String::from("value"));
+    }
+
+    fn add_edge(&mut self, source: DepReq, target: DepReq) {
+        self.relations
+            .entry(source)
+            .or_insert_with(Vec::new)
+            .push(target);
+    }
+}
+
+// if i created a graph then i have non-duplicated dependencies with connections
+// for installing loop through all and download it's dependencies
+// 
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -181,6 +215,77 @@ fn main() {
             // let packages: Vec<&String> = args[2..].iter().collect();
 
             let package_info = fetch_package_info();
+            let version = "~0.0.2";
+
+            let dependencies_tree: HashMap<String, PackageVersion>;
+            // depName, dependencyDetails
+
+            // dep and it's dependencies
+            // name: {version, ...etc}
+            // if name then check same version
+            // if not add that to tree
+            // lastly loop tree and download dependencies if not in cache
+            // before adding to top level check is there two availalable
+            // if there two with different versions
+            // webdiari 0.1 installed on top
+            // then when i install 0.3 then 0.1 need to move it's specific dependencies
+            // save paths on each package = ["node_modules/@webdiari/node_modules"]
+
+            // mime-types@~2.1.24:
+            //  version "2.1.35"
+            //  resolved "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz"
+            //  integrity sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==
+            //  dependencies:
+            //      mime-db "1.52.0"
+
+            let dependencies: HashMap<String, String>;
+            let dev_dependencies: HashMap<String, String>;
+
+            // only for matching dependencies already downloaded
+            // struct LockFile
+
+            let temp: HashMap<String, Tree>;
+            struct Tree {
+                version: String,
+                resolved: String,
+                integrity: String,
+                dependencies: HashMap<String, Tree>,
+            }
+
+            // loop through tree and download all dependencies but what about same packages
+
+            let parsed_version: Range = version.parse().unwrap();
+            let matching_versions: Vec<&String> = package_info
+                .versions
+                .keys()
+                .filter(|&v| {
+                    let version: Version = v.parse().unwrap();
+                    version.satisfies(&parsed_version)
+                })
+                .collect();
+
+            println!("Matching version {:?}", matching_versions);
+
+            if let Some(&max_version_str) = matching_versions.iter().max() {
+                println!(
+                    "Version is {:?}",
+                    package_info.versions.get(max_version_str)
+                );
+            } else {
+                println!("Version Not Found");
+            }
+
+            // if let Some(package_version) = package_info.versions.get("0.0.7") {
+            //     println!("package version: {:?}", package_version);
+            //     if let Some(dependencies) = &package_version.dependencies {
+            //         for (package, version) in dependencies {
+            //             println!("Dependency: {:?}", package);
+            //             println!("Version: {:?}", version);
+            //         }
+            //     }
+            // }
+            // let dependencies = dependency.get("dependencies").unwrap();
+            // let package_info = fetch_package_info();
 
             let parts: Vec<&str> = package_info.name.split('/').collect();
 
