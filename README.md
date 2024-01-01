@@ -1,2 +1,2 @@
-# nnpm
-nnpm (New Node Package Manager) is an opensource Node package manager written in Rust programming language.
+# LUNA
+LUNA (Light-weight Universal Node Assistant) is an opensource Node.js assistant written in Rust programming language.
