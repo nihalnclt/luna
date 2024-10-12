@@ -21,5 +21,8 @@ go.work.sum
 # env file
 .env
 
-# playground file
+# playground and js files
 playground
+package.json
+node_modules
+luna.lock
