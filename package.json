@@ -1,0 +1,11 @@
+{
+  "name": "luna",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" \u0026\u0026 exit 1"
+  },
+  "author": "",
+  "description": ""
+}
