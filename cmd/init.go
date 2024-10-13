@@ -5,55 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
+	"github.com/nihalnclt/luna/models"
+	"github.com/nihalnclt/luna/utils"
 	"github.com/spf13/cobra"
 )
-
-type Repository struct {
-	Type string `json:"type"`
-	URL  string `json:"url"`
-}
-
-type PackageJSON struct {
-	Name        string            `json:"name"`
-	Version     string            `json:"version"`
-	Main        string            `json:"main"`
-	License     string            `json:"license"`
-	Scripts     map[string]string `json:"scripts"`
-	Author      string            `json:"author"`
-	Repository  *Repository       `json:"repository,omitempty"`
-	Description string            `json:"description"`
-}
-
-var yesFlag bool
-
-func (p PackageJSON) MarshalJSON() ([]byte, error) {
-	type Alias PackageJSON
-	return json.Marshal(&struct {
-		*Alias
-	}{
-		Alias: (*Alias)(&p), // Use the alias to avoid recursion
-	})
-}
-
-func isURLFriendly(s string) bool {
-	// Use a regular expression to allow only URL-friendly characters
-	regexp := regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-	return regexp.MatchString(s)
-}
-
-func GetBaseFolderName() (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Base(cwd), nil
-}
 
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -62,13 +20,13 @@ var initCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		start := time.Now()
 
-		packageName, err := GetBaseFolderName()
+		packageName, err := utils.GetBaseFolderName()
 		if err != nil {
 			fmt.Println("Error getting package name:", err)
 			return
 		}
 
-		packageJSON := PackageJSON{
+		packageJSON := models.PackageJSON{
 			Name:    packageName,
 			Version: "1.0.0",
 			Main:    "index.js",
@@ -82,7 +40,7 @@ var initCmd = &cobra.Command{
 			Description: "",
 		}
 
-		if !yesFlag {
+		if yesFlag, _ := cmd.PersistentFlags().GetBool("yes"); !yesFlag {
 			reader := bufio.NewReader(os.Stdin)
 
 			for {
@@ -94,7 +52,7 @@ var initCmd = &cobra.Command{
 					break
 				}
 
-				if isURLFriendly(projectName) {
+				if utils.IsURLFriendly(projectName) {
 					packageJSON.Name = strings.ToLower(projectName)
 					break
 				}
@@ -120,7 +78,7 @@ var initCmd = &cobra.Command{
 			repositoryInput, _ := reader.ReadString('\n')
 			repository := strings.TrimSpace(repositoryInput)
 			if repository != "" {
-				packageJSON.Repository = &Repository{}
+				packageJSON.Repository = &models.Repository{}
 
 				packageJSON.Repository.Type = "git"
 				packageJSON.Repository.URL = repository
@@ -159,13 +117,10 @@ var initCmd = &cobra.Command{
 		fmt.Printf("%ssuccess%s Saved package.json\n", Green, Reset)
 		fmt.Printf("✨ Finished in %.2fs.\n", elapsed)
 	},
-	PreRun: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
-	},
 }
 
 func init() {
 	rootCmd.AddCommand(initCmd)
 
-	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Use default value for package.json")
+	initCmd.PersistentFlags().BoolP("yes", "y", false, "Use default value for package.json")
 }
